@@ -1,15 +1,27 @@
-FROM python:3.9-alpine
+# Use an official Python runtime as a parent image
+FROM python:3.8
 
-WORKDIR /flask_app
+# Set environment variables for Python
+ENV PYTHONDONTWRITEBYTECODE 1
+ENV PYTHONUNBUFFERED 1
 
-COPY requirements.txt .
+# Create and set the working directory in the container
+WORKDIR /app
 
-RUN pip install --no-cache-dir -r requirements.txt
+# Copy the requirements file into the container
+COPY requirements.txt /app/
 
-RUN pip install pytest
+# Install any needed packages specified in requirements.txt
+RUN pip install -r requirements.txt
 
-COPY app/ .
+# Copy the rest of the application code into the container
+COPY . /app/
 
-COPY tests/ app/tests/
+# Expose the port the application runs on
+EXPOSE 8000
 
-CMD [ "python", "app.py" ]
+# Collect the static files
+RUN python manage.py collectstatic --noinput
+
+# Start the Django application using gunicorn
+CMD gunicorn your_project_name.wsgi:application --bind 0.0.0.0:8000
