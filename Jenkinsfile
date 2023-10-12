@@ -1,30 +1,38 @@
 pipeline {
-  agent any
+    agent any
 
-  stages {
-    stage('Build') {
-      steps {
-        sh 'docker build -t my-flask-app .'
-        sh 'docker tag my-flask-app $DOCKER_BFLASK_IMAGE'
-      }
+    environment {
+        DOCKER_IMAGE = 'your-django-app-image'
     }
-    stage('Test') {
-      steps {
-        sh 'docker run my-flask-app python -m pytest app/tests/'
-      }
-    }
-    stage('Deploy') {
-      steps {
-        withCredentials([usernamePassword(credentialsId: "${DOCKER_REGISTRY_CREDS}", passwordVariable: 'DOCKER_PASSWORD', usernameVariable: 'DOCKER_USERNAME')]) {
-          sh "echo \$DOCKER_PASSWORD | docker login -u \$DOCKER_USERNAME --password-stdin docker.io"
-          sh 'docker push $DOCKER_BFLASK_IMAGE'
+
+    stages {
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
         }
-      }
+
+        stage('Build and Push Docker Image') {
+            steps {
+                script {
+                    sh "docker build -t ${DOCKER_IMAGE} ."
+                    sh "docker push ${DOCKER_IMAGE}"
+                }
+            }
+        }
+
+        stage('Deploy to Server') {
+            steps {
+                script {
+                    // SSH into the server where you want to deploy the Docker container
+                    sshagent(credentials: ['your-ssh-credentials-id']) {
+                        sh "ssh user@your-server-address 'docker pull ${DOCKER_IMAGE}'"
+                        sh "ssh user@your-server-address 'docker stop your-django-container || true'"
+                        sh "ssh user@your-server-address 'docker rm your-django-container || true'"
+                        sh "ssh user@your-server-address 'docker run -d -p 8000:8000 --name your-django-container ${DOCKER_IMAGE}'"
+                    }
+                }
+            }
+        }
     }
-  }
-  post {
-    always {
-      sh 'docker logout'
-    }
-  }
 }
